@@ -6,6 +6,8 @@
 
 package org.hyperledger.fabric.client;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * An endorsed transaction that can be submitted to the orderer for commit to the ledger.
  */
@@ -41,8 +43,35 @@ public interface Transaction extends Signable {
      * transaction is successfully delivered to the orderer. The returned Commit may be used to subsequently wait
      * for the transaction to be committed to the ledger.
      * @param options Call options.
+     * @return Future returns a transaction commit.
+     * <ul>
+     *     <li>Future returns {@link SubmitException} if the submit invocation fails.</li>
+     *     <li>Future returns {@link CommitStatusException} if the commit status invocation fails.</li>
+     *     <li>Future returns {@link CommitException} if the transaction commits unsuccessfully.</li>
+     * </ul>
+     */
+    CompletableFuture<byte[]> submitNonBlocking(CallOption... options);
+
+    /**
+     * Submit the transaction to the orderer to be committed to the ledger. This method returns immediately after the
+     * transaction is successfully delivered to the orderer. The returned Commit may be used to subsequently wait
+     * for the transaction to be committed to the ledger.
+     * @param options Call options.
      * @return A transaction commit.
      * @throws SubmitException if the gRPC service invocation fails.
      */
     SubmittedTransaction submitAsync(CallOption... options) throws SubmitException;
+
+    /**
+     * Submit the transaction to the orderer to be committed to the ledger. This method blocks until the transaction
+     * has been successfully committed to the ledger.
+     * @param options Call options.
+     * @return Future returns a transaction result.
+     * <ul>
+     *     <li>Future returns {@link SubmitException} if the submit invocation fails.</li>
+     *     <li>Future returns {@link CommitStatusException} if the commit status invocation fails.</li>
+     *     <li>Future returns {@link CommitException} if the transaction commits unsuccessfully.</li>
+     * </ul>
+     */
+    CompletableFuture<SubmittedTransaction> submitAsyncNonBlocking(CallOption... options);
 }

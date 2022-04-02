@@ -7,6 +7,7 @@
 package org.hyperledger.fabric.client;
 
 import com.google.protobuf.ByteString;
+import java.util.concurrent.CompletableFuture;
 import org.hyperledger.fabric.protos.gateway.EndorseRequest;
 import org.hyperledger.fabric.protos.gateway.EndorseResponse;
 import org.hyperledger.fabric.protos.gateway.EvaluateRequest;
@@ -60,6 +61,19 @@ final class ProposalImpl implements Proposal {
     }
 
     @Override
+    public CompletableFuture<byte[]> evaluateNonBlocking(final CallOption... options) {
+        sign();
+        final EvaluateRequest evaluateRequest = EvaluateRequest.newBuilder()
+            .setTransactionId(proposedTransaction.getTransactionId())
+            .setChannelId(channelName)
+            .setProposedTransaction(proposedTransaction.getProposal())
+            .addAllTargetOrganizations(proposedTransaction.getEndorsingOrganizationsList())
+            .build();
+        return client.evaluateNonBlocking(evaluateRequest, options)
+            .thenApply(evaluateResponse -> evaluateResponse.getResult().getPayload().toByteArray());
+    }
+
+    @Override
     public Transaction endorse(final CallOption... options) throws EndorseException {
         sign();
         final EndorseRequest endorseRequest = EndorseRequest.newBuilder()
@@ -75,6 +89,26 @@ final class ProposalImpl implements Proposal {
                 .setEnvelope(endorseResponse.getPreparedTransaction())
                 .build();
         return new TransactionImpl(client, signingIdentity, preparedTransaction);
+    }
+
+    @Override
+    public CompletableFuture<Transaction> endorseNonBlocking(final CallOption... options) {
+        sign();
+        final EndorseRequest endorseRequest = EndorseRequest.newBuilder()
+            .setTransactionId(proposedTransaction.getTransactionId())
+            .setChannelId(channelName)
+            .setProposedTransaction(proposedTransaction.getProposal())
+            .addAllEndorsingOrganizations(proposedTransaction.getEndorsingOrganizationsList())
+            .build();
+
+        return client.endorseNonBlocking(endorseRequest, options)
+            .thenApply(endorseResponse -> {
+                PreparedTransaction preparedTransaction = PreparedTransaction.newBuilder()
+                    .setTransactionId(proposedTransaction.getTransactionId())
+                    .setEnvelope(endorseResponse.getPreparedTransaction())
+                    .build();
+                return new TransactionImpl(client, signingIdentity, preparedTransaction);
+            });
     }
 
     void setSignature(final byte[] signature) {

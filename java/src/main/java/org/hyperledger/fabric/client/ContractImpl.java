@@ -8,6 +8,7 @@ package org.hyperledger.fabric.client;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 final class ContractImpl implements Contract {
     private final GatewayClient client;
@@ -40,12 +41,29 @@ final class ContractImpl implements Contract {
     }
 
     @Override
+    public CompletableFuture<byte[]> submitTransactionNonBlocking(final String name) {
+        return newProposal(name)
+                .build()
+                .endorseNonBlocking()
+                .thenCompose(Transaction::submitNonBlocking);
+    }
+
+    @Override
     public byte[] submitTransaction(final String name, final String... args) throws EndorseException, CommitException, SubmitException, CommitStatusException {
         return newProposal(name)
                 .addArguments(args)
                 .build()
                 .endorse()
                 .submit();
+    }
+
+    @Override
+    public CompletableFuture<byte[]> submitTransactionNonBlocking(final String name, final String... args) {
+        return newProposal(name)
+            .addArguments(args)
+            .build()
+            .endorseNonBlocking()
+            .thenCompose(Transaction::submitNonBlocking);
     }
 
     @Override
@@ -58,10 +76,27 @@ final class ContractImpl implements Contract {
     }
 
     @Override
+    public  CompletableFuture<byte[]> submitTransactionNonBlocking(final String name,
+        final byte[]... args) {
+        return newProposal(name)
+            .addArguments(args)
+            .build()
+            .endorseNonBlocking()
+            .thenCompose(Transaction::submitNonBlocking);
+    }
+
+    @Override
     public byte[] evaluateTransaction(final String name) throws GatewayException {
         return newProposal(name)
                 .build()
                 .evaluate();
+    }
+
+    @Override
+    public CompletableFuture<byte[]> evaluateTransactionNonBlocking(final String name) {
+        return newProposal(name)
+            .build()
+            .evaluateNonBlocking();
     }
 
     @Override
@@ -73,11 +108,29 @@ final class ContractImpl implements Contract {
     }
 
     @Override
+    public CompletableFuture<byte[]> evaluateTransactionNonBlocking(final String name,
+        final String... args) {
+        return newProposal(name)
+            .addArguments(args)
+            .build()
+            .evaluateNonBlocking();
+    }
+
+    @Override
     public byte[] evaluateTransaction(final String name, final byte[]... args) throws GatewayException {
         return newProposal(name)
                 .addArguments(args)
                 .build()
                 .evaluate();
+    }
+
+    @Override
+    public CompletableFuture<byte[]> evaluateTransactionNonBlocking(final String name,
+        final byte[]... args) {
+        return newProposal(name)
+            .addArguments(args)
+            .build()
+            .evaluateNonBlocking();
     }
 
     @Override

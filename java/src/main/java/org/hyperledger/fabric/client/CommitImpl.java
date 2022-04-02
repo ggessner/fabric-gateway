@@ -7,6 +7,7 @@
 package org.hyperledger.fabric.client;
 
 import com.google.protobuf.ByteString;
+import java.util.concurrent.CompletableFuture;
 import org.hyperledger.fabric.protos.gateway.CommitStatusResponse;
 import org.hyperledger.fabric.protos.gateway.SignedCommitStatusRequest;
 
@@ -45,6 +46,13 @@ class CommitImpl implements Commit {
         sign();
         CommitStatusResponse response = client.commitStatus(signedRequest, options);
         return new StatusImpl(transactionId, response);
+    }
+
+    @Override
+    public CompletableFuture<Status> getStatusNonBlocking(final CallOption... options) {
+        sign();
+        return client.commitStatusNonBlocking(signedRequest, options)
+            .thenApply(response -> new StatusImpl(transactionId, response));
     }
 
     void setSignature(final byte[] signature) {

@@ -7,6 +7,7 @@
 package org.hyperledger.fabric.client;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * A Fabric Gateway transaction proposal, which can be used to evaluate a transaction to query ledger state, or obtain
@@ -30,6 +31,17 @@ public interface Proposal extends Signable {
     byte[] evaluate(CallOption... options) throws GatewayException;
 
     /**
+     * Evaluate the proposal and return the transaction result. The transaction is not submitted to the orderer and is
+     * not committed to the ledger.
+     * @param options Call options.
+     * @return Future returns transaction result.
+     * <ul>
+     *     <li>Future returns {@link GatewayException} if the gRPC service invocation fails.</li>
+     * </ul>
+     */
+    CompletableFuture<byte[]> evaluateNonBlocking(CallOption... options);
+
+    /**
      * Send the proposal to peers to obtain endorsements. Successful endorsement results in a transaction that can be
      * submitted to the orderer to be committer to the ledger.
      * @param options Call options.
@@ -37,6 +49,17 @@ public interface Proposal extends Signable {
      * @throws EndorseException if the gRPC service invocation fails.
      */
     Transaction endorse(CallOption... options) throws EndorseException;
+
+    /**
+     * Send the proposal to peers to obtain endorsements. Successful endorsement results in a transaction that can be
+     * submitted to the orderer to be committer to the ledger.
+     * @param options Call options.
+     * @return Future returns an endorsed transaction.
+     * <ul>
+     *     <li>Future returns {@link EndorseException} if the gRPC service invocation fails.</li>
+     * </ul>
+     */
+    CompletableFuture<Transaction> endorseNonBlocking(CallOption... options);
 
     /**
      * Builder used to create a new transaction proposal.

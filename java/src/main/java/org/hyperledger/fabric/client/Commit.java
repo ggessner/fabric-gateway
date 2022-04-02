@@ -6,6 +6,8 @@
 
 package org.hyperledger.fabric.client;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * Allows access to information about a transaction that is committed to the ledger.
  */
@@ -24,4 +26,15 @@ public interface Commit extends Signable {
      * @throws CommitStatusException if the gRPC service invocation fails.
      */
     Status getStatus(CallOption... options) throws CommitStatusException;
+
+    /**
+     * Get the status of the committed transaction. If the transaction has not yet committed, this method blocks until
+     * the commit occurs.
+     * @param options Call options.
+     * @return Future returns transaction commit status.
+     * <ul>
+     *     <li>Future returns {@link CommitStatusException} if the gRPC service invocation fails.</li>
+     * </ul>
+     */
+    CompletableFuture<Status> getStatusNonBlocking(CallOption... options);
 }

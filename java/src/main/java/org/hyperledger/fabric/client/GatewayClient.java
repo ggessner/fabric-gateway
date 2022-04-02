@@ -10,11 +10,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedTransferQueue;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -43,6 +45,7 @@ import org.hyperledger.fabric.protos.peer.EventsPackage;
 
 final class GatewayClient {
     private final GatewayGrpc.GatewayBlockingStub gatewayBlockingStub;
+    private final GatewayGrpc.GatewayStub gatewayAsyncStub;
     private final DeliverGrpc.DeliverStub deliverAsyncStub;
     private final CallOptions defaultOptions;
 
@@ -51,6 +54,7 @@ final class GatewayClient {
         GatewayUtils.requireNonNullArgument(defaultOptions, "defaultOptions");
 
         this.gatewayBlockingStub = GatewayGrpc.newBlockingStub(channel);
+        this.gatewayAsyncStub = GatewayGrpc.newStub(channel);
         this.deliverAsyncStub = DeliverGrpc.newStub(channel);
         this.defaultOptions = defaultOptions;
     }
@@ -64,6 +68,11 @@ final class GatewayClient {
         }
     }
 
+    public CompletableFuture<EvaluateResponse> evaluateNonBlocking(final EvaluateRequest request, final CallOption... options) {
+        GatewayGrpc.GatewayStub stub = applyOptions(gatewayAsyncStub, defaultOptions.getEvaluate(options));
+        return wrapNonBlocking(stub::evaluate, request, GatewayException::new);
+    }
+
     public EndorseResponse endorse(final EndorseRequest request, final CallOption... options) throws EndorseException {
         GatewayGrpc.GatewayBlockingStub stub = applyOptions(gatewayBlockingStub, defaultOptions.getEndorse(options));
         try {
@@ -73,6 +82,11 @@ final class GatewayClient {
         }
     }
 
+    public CompletableFuture<EndorseResponse> endorseNonBlocking(final EndorseRequest request, final CallOption... options) {
+        GatewayGrpc.GatewayStub stub = applyOptions(gatewayAsyncStub, defaultOptions.getEvaluate(options));
+        return wrapNonBlocking(stub::endorse, request, e -> new EndorseException(request.getTransactionId(), e));
+    }
+
     public SubmitResponse submit(final SubmitRequest request, final CallOption... options) throws SubmitException {
         GatewayGrpc.GatewayBlockingStub stub = applyOptions(gatewayBlockingStub, defaultOptions.getSubmit(options));
         try {
@@ -80,6 +94,11 @@ final class GatewayClient {
         } catch (StatusRuntimeException e) {
             throw new SubmitException(request.getTransactionId(), e);
         }
+    }
+
+    public CompletableFuture<SubmitResponse> submitNonBlocking(final SubmitRequest request, final CallOption... options) {
+        GatewayGrpc.GatewayStub stub = applyOptions(gatewayAsyncStub, defaultOptions.getEvaluate(options));
+        return wrapNonBlocking(stub::submit, request, e -> new SubmitException(request.getTransactionId(), e));
     }
 
     public CommitStatusResponse commitStatus(final SignedCommitStatusRequest request, final CallOption... options) throws CommitStatusException {
@@ -97,6 +116,21 @@ final class GatewayClient {
                 throw commitErr;
             }
         }
+    }
+
+    public CompletableFuture<CommitStatusResponse> commitStatusNonBlocking(final SignedCommitStatusRequest request, final CallOption... options) {
+        GatewayGrpc.GatewayStub stub = applyOptions(gatewayAsyncStub, defaultOptions.getEvaluate(options));
+        return wrapNonBlocking(stub::commitStatus, request, e -> {
+                try {
+                    CommitStatusRequest req = CommitStatusRequest.parseFrom(request.getRequest());
+                    return new CommitStatusException(req.getTransactionId(), e);
+                } catch (InvalidProtocolBufferException protoErr) {
+                    // Should never happen
+                    CommitStatusException commitErr = new CommitStatusException("", e);
+                    commitErr.addSuppressed(protoErr);
+                    return commitErr;
+                }
+            });
     }
 
     public CloseableIterator<ChaincodeEventsResponse> chaincodeEvents(final SignedChaincodeEventsRequest request, final CallOption... options) {
@@ -125,6 +159,60 @@ final class GatewayClient {
             result = option.apply(result);
         }
         return result;
+    }
+
+    private abstract static class CompletableObserverFuture<T> extends CompletableFuture<T> {
+        private final StreamObserver<T> observer;
+        private CompletableObserverFuture() {
+            this.observer = new StreamObserver<T>() {
+                @Override
+                public void onNext(final T response) {
+                    if (isCancelled()) {
+                        return;
+                    }
+                    complete(response);
+                }
+
+                @Override
+                public void onError(final Throwable throwable) {
+                    if (isCancelled()) {
+                       return;
+                    }
+                    if (throwable instanceof StatusRuntimeException) {
+                        Throwable t = onStatusRuntimeException((StatusRuntimeException) throwable);
+                        completeExceptionally(t);
+                    } else {
+                        completeExceptionally(throwable);
+                    }
+                }
+
+                @Override
+                public void onCompleted() {
+                    // DO NOTHING
+                }
+            };
+        }
+
+        public StreamObserver<T> getObserver() {
+            return observer;
+        }
+
+        public abstract Throwable onStatusRuntimeException(StatusRuntimeException e);
+    }
+
+    private static <Response, Request> CompletableFuture<Response> wrapNonBlocking(
+        final BiConsumer<Request, StreamObserver<Response>> call,
+        final Request request,
+        final Function<StatusRuntimeException, Throwable> mapStatusError
+    ) {
+        CompletableObserverFuture<Response> future = new CompletableObserverFuture<Response>() {
+            @Override
+            public Throwable onStatusRuntimeException(final StatusRuntimeException e) {
+                return mapStatusError.apply(e);
+            }
+        };
+        call.accept(request, future.getObserver());
+        return future;
     }
 
     private <Response> CloseableIterator<Response> invokeServerStreamingCall(final Supplier<Iterator<Response>> call) {

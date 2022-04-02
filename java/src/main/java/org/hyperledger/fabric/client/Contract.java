@@ -7,6 +7,7 @@
 package org.hyperledger.fabric.client;
 
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Represents a smart contract instance in a network.
@@ -142,6 +143,22 @@ public interface Contract {
     byte[] submitTransaction(String name) throws EndorseException, CommitException, SubmitException, CommitStatusException;
 
     /**
+     * Submit a transaction to the ledger asynchronously and return its result only after it is committed to the ledger. The
+     * transaction function will be evaluated on endorsing peers and then submitted to the ordering service to be
+     * committed to the ledger.
+     *
+     * <p>This method is equivalent to:</p>
+     * <pre>{@code
+     *     contract.newProposal(name)
+     *             .build()
+     *             .submitAsync();
+     * }</pre>
+     * @param name Transaction function name.
+     * @return Payload response from the transaction function.
+     */
+    CompletableFuture<byte[]> submitTransactionNonBlocking(String name);
+
+    /**
      * Submit a transaction to the ledger and return its result only after it is committed to the ledger. The
      * transaction function will be evaluated on endorsing peers and then submitted to the ordering service to be
      * committed to the ledger.
@@ -162,6 +179,23 @@ public interface Contract {
      * @throws NullPointerException if the transaction name is null.
      */
     byte[] submitTransaction(String name, String... args) throws EndorseException, SubmitException, CommitStatusException, CommitException;
+
+    /**
+     * Submit a transaction to the ledger asynchronously and return its result only after it is committed to the ledger. The
+     * transaction function will be evaluated on endorsing peers and then submitted to the ordering service to be
+     * committed to the ledger.
+     * <p>This method is equivalent to:</p>
+     * <pre>{@code
+     *     contract.newProposal(name)
+     *             .addArguments(arg1, arg2)
+     *             .build()
+     *             .submitAsync();
+     * }</pre>
+     * @param name Transaction function name.
+     * @param args Transaction function arguments.
+     * @return Payload response from the transaction function.
+     */
+    CompletableFuture<byte[]> submitTransactionNonBlocking(String name, String... args);
 
     /**
      * Submit a transaction to the ledger and return its result only after it is committed to the ledger. The
@@ -187,6 +221,24 @@ public interface Contract {
     byte[] submitTransaction(String name, byte[]... args) throws EndorseException, CommitException, SubmitException, CommitStatusException;
 
     /**
+     * Submit a transaction to the ledger asynchronously and return its result only after it is committed to the ledger. The
+     * transaction function will be evaluated on endorsing peers and then submitted to the ordering service to be
+     * committed to the ledger.
+     *
+     * <p>This method is equivalent to:</p>
+     * <pre>{@code
+     *     contract.newProposal(name)
+     *             .addArguments(arg1, arg2)
+     *             .build()
+     *             .submitAsync();
+     * }</pre>
+     * @param name Transaction function name.
+     * @param args Transaction function arguments.
+     * @return Payload response from the transaction function.
+     */
+    CompletableFuture<byte[]> submitTransactionNonBlocking(String name, byte[]... args);
+
+    /**
      * Evaluate a transaction function and return its results. A transaction proposal will be evaluated on endorsing
      * peers but the transaction will not be sent to the ordering service and so will not be committed to the ledger.
      * This can be used for querying the world state.
@@ -203,6 +255,22 @@ public interface Contract {
      * @throws NullPointerException if the transaction name is null.
      */
     byte[] evaluateTransaction(String name) throws GatewayException;
+
+    /**
+     * Evaluate a transaction function asynchronously and return its results. A transaction proposal will be evaluated on endorsing
+     * peers but the transaction will not be sent to the ordering service and so will not be committed to the ledger.
+     * This can be used for querying the world state.
+     *
+     * <p>This method is equivalent to:</p>
+     * <pre>{@code
+     *     contract.newProposal(name)
+     *             .build()
+     *             .evaluateAsync();
+     * }</pre>
+     * @param name Transaction function name.
+     * @return Payload response from the transaction function.
+     */
+    CompletableFuture<byte[]> evaluateTransactionNonBlocking(String name);
 
     /**
      * Evaluate a transaction function and return its results. A transaction proposal will be evaluated on endorsing
@@ -225,6 +293,24 @@ public interface Contract {
     byte[] evaluateTransaction(String name, String... args) throws GatewayException;
 
     /**
+     * Evaluate a transaction function asynchronously and return its results. A transaction proposal will be evaluated on endorsing
+     * peers but the transaction will not be sent to the ordering service and so will not be committed to the ledger.
+     * This can be used for querying the world state.
+     *
+     * <p>This method is equivalent to:</p>
+     * <pre>{@code
+     *     contract.newProposal(name)
+     *             .addArguments(arg1, arg2)
+     *             .build()
+     *             .evaluate();
+     * }</pre>
+     * @param name Transaction function name.
+     * @param args Transaction function arguments.
+     * @return Payload response from the transaction function.
+     */
+    CompletableFuture<byte[]> evaluateTransactionNonBlocking(String name, String... args);
+
+    /**
      * Evaluate a transaction function and return its results. A transaction proposal will be evaluated on endorsing
      * peers but the transaction will not be sent to the ordering service and so will not be committed to the ledger.
      * This can be used for querying the world state.
@@ -242,6 +328,23 @@ public interface Contract {
      * @throws NullPointerException if the transaction name is null.
      */
     byte[] evaluateTransaction(String name, byte[]... args) throws GatewayException;
+
+    /**
+     * Evaluate a transaction function and return its results. A transaction proposal will be evaluated on endorsing
+     * peers but the transaction will not be sent to the ordering service and so will not be committed to the ledger.
+     * This can be used for querying the world state.
+     * <p>This method is equivalent to:</p>
+     * <pre>{@code
+     *     contract.newProposal(name)
+     *             .addArguments(arg1, arg2)
+     *             .build()
+     *             .evaluateAsync();
+     * }</pre>
+     * @param name Transaction function name.
+     * @param args Transaction function arguments.
+     * @return Payload response from the transaction function.
+     */
+    CompletableFuture<byte[]> evaluateTransactionNonBlocking(String name, byte[]... args);
 
     /**
      * Build a new proposal that can be evaluated or sent to peers for endorsement. Supports both asynchronous submit

@@ -7,6 +7,8 @@
 package org.hyperledger.fabric.client;
 
 import com.google.protobuf.ByteString;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.hyperledger.fabric.protos.common.Common;
 import org.hyperledger.fabric.protos.gateway.CommitStatusRequest;
 import org.hyperledger.fabric.protos.gateway.PreparedTransaction;
@@ -65,6 +67,20 @@ final class TransactionImpl implements Transaction {
     }
 
     @Override
+    public CompletableFuture<SubmittedTransaction> submitAsyncNonBlocking(final CallOption... options) {
+        sign();
+        SubmitRequest submitRequest = SubmitRequest.newBuilder()
+            .setTransactionId(preparedTransaction.getTransactionId())
+            .setChannelId(channelName)
+            .setPreparedTransaction(preparedTransaction.getEnvelope())
+            .build();
+
+        return client.submitNonBlocking(submitRequest, options)
+            .thenApply(submitResponse ->
+                new SubmittedTransactionImpl(client, signingIdentity, getTransactionId(), newSignedCommitStatusRequest(), getResult()));
+    }
+
+    @Override
     public byte[] submit(final CallOption... options) throws CommitException, SubmitException, CommitStatusException {
         Status status = submitAsync(options).getStatus(options);
         if (!status.isSuccessful()) {
@@ -72,6 +88,18 @@ final class TransactionImpl implements Transaction {
         }
 
         return getResult();
+    }
+
+    @Override
+    public CompletableFuture<byte[]> submitNonBlocking(final CallOption... options) {
+        return submitAsyncNonBlocking(options)
+            .thenCompose(e -> e.getStatusNonBlocking(options))
+            .thenApply((status) -> {
+                if (!status.isSuccessful()) {
+                    throw new CompletionException(new CommitException(status));
+                }
+                return getResult();
+            });
     }
 
     void setSignature(final byte[] signature) {
